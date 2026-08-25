@@ -7,7 +7,7 @@
   "desktopName": "org.jitsi.jitsi-meet",
   "private": true,
   "scripts": {
-    "start": "node ./esbuild.js --dev && concurrently \"npm:watch\" \"electron ./build/main.js\"",
+    "start": "node ./esbuild.js --dev && concurrently \"npm:watch\" \"electron --no-sandbox ./build/main.js\"",
     "clean": "rm -rf node_modules build dist",
     "lint": "eslint . --ext .js,.ts,.tsx",
     "lint-fix": "eslint . --ext .js,.ts,.tsx --fix",
