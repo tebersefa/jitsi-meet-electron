@@ -99,8 +99,6 @@ let mainWindow: BrowserWindow | null = null;
 let meetingWindow: BrowserWindow | null = null;
 
 
-let webrtcInternalsWindow: BrowserWindow | null = null;
-
 /**
  * Add protocol data
  */
@@ -338,19 +336,6 @@ function createJitsiMeetWindow() {
     handleProtocolCall(process.argv.pop());
 }
 
-/**
- * Opens new window with WebRTC internals.
- */
-function createWebRTCInternalsWindow() {
-    const options = {
-        minWidth: 800,
-        minHeight: 600,
-        show: true
-    };
-
-    webrtcInternalsWindow = new BrowserWindow(options);
-    webrtcInternalsWindow.loadURL('chrome://webrtc-internals');
-}
 
 /**
  * Handler for application protocol links to initiate a conference.
@@ -423,10 +408,6 @@ app.on('certificate-error',
 );
 
 app.on('ready', createJitsiMeetWindow);
-
-if (isDev) {
-    app.on('ready', createWebRTCInternalsWindow);
-}
 
 app.on('second-instance', (event, commandLine) => {
     /**
