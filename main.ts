@@ -55,6 +55,10 @@ if (!app.commandLine.hasSwitch('enable-features')) {
     app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
 }
 
+if (process.env.IGNORE_CERTIFICATE_ERRORS === 'true' || process.argv.includes('--ignore-certificate-errors')) {
+    app.commandLine.appendSwitch('ignore-certificate-errors');
+}
+
 autoUpdater.logger = log;
 log.transports.file.level = 'info';
 
@@ -325,7 +329,11 @@ function createJitsiMeetWindow() {
         mainWindow = null;
     });
     mainWindow.once('ready-to-show', () => {
-        mainWindow?.show();
+        const initialUrl = getProtocolUrl(process.argv);
+
+        if (!initialUrl) {
+            mainWindow?.show();
+        }
     });
 
     /**
@@ -333,9 +341,28 @@ function createJitsiMeetWindow() {
      *  while app is closed
      * it will trigger this event below
      */
-    handleProtocolCall(process.argv.pop());
+    handleProtocolCall(getProtocolUrl(process.argv));
 }
 
+function getProtocolUrl(argv: string[]): string | undefined {
+    console.log('process.env.ROOM_URL', process.env.ROOM_URL);
+    if (process.env.ROOM_URL) {
+        return process.env.ROOM_URL;
+    }
+
+    console.log('argv', argv);
+    const roomUrlArg = argv.find(arg => arg.startsWith('--room-url='));
+
+    if (roomUrlArg) {
+        return roomUrlArg.substring('--room-url='.length);
+    }
+
+    return [ ...argv ].reverse().find(arg =>
+        arg.startsWith(appProtocolSurplus)
+        || arg.startsWith('http://')
+        || arg.startsWith('https://')
+    );
+}
 
 /**
  * Handler for application protocol links to initiate a conference.
@@ -348,12 +375,17 @@ function handleProtocolCall(fullProtocolCall?: string) {
     if (
         !fullProtocolCall
         || fullProtocolCall.trim() === ''
-        || fullProtocolCall.indexOf(appProtocolSurplus) !== 0
     ) {
         return;
     }
 
-    const inputURL = fullProtocolCall.replace(appProtocolSurplus, '');
+    let inputURL = fullProtocolCall;
+
+    if (fullProtocolCall.startsWith(appProtocolSurplus)) {
+        inputURL = fullProtocolCall.replace(appProtocolSurplus, '');
+    } else if (!fullProtocolCall.startsWith('http://') && !fullProtocolCall.startsWith('https://')) {
+        return;
+    }
 
     if (meetingWindow) {
         meetingWindow.webContents.send('protocol-data-msg', inputURL);
@@ -398,7 +430,7 @@ app.on('activate', () => {
 app.on('certificate-error',
     // eslint-disable-next-line max-params
     (event, webContents, url, error, certificate, callback) => {
-        if (isDev) {
+        if (isDev || process.env.IGNORE_CERTIFICATE_ERRORS === 'true' || process.argv.includes('--ignore-certificate-errors')) {
             event.preventDefault();
             callback(true);
         } else {
@@ -414,6 +446,12 @@ app.on('second-instance', (event, commandLine) => {
      * If someone creates second instance of the application, set focus on
      * existing window.
      */
+    const url = getProtocolUrl(commandLine);
+
+    if (!url && mainWindow && !mainWindow.isVisible()) {
+        mainWindow.show();
+    }
+
     if (meetingWindow) {
         meetingWindow.isMinimized() && meetingWindow.restore();
         meetingWindow.focus();
@@ -427,7 +465,7 @@ app.on('second-instance', (event, commandLine) => {
      * so when someone tries to enter something like jitsi-meet://test
      * while app is opened it will trigger protocol handler.
      */
-    handleProtocolCall(commandLine.pop());
+    handleProtocolCall(url);
 });
 
 app.on('window-all-closed', () => {
@@ -609,6 +647,9 @@ ipcMain.on('open-meeting-window', (event, conference) => {
     // Closing the meeting window must NOT quit the app — launcher stays open.
     meetingWindow.on('closed', () => {
         meetingWindow = null;
+        if (mainWindow && !mainWindow.isVisible()) {
+            mainWindow.close();
+        }
     });
 
     meetingWindow.once('ready-to-show', () => {
