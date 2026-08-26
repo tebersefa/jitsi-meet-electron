@@ -53,12 +53,12 @@ class MeetingApp extends Component<IProps, IMeetingAppState> {
                         const serverURL = conference.serverURL || defaultURL;
                         const url = new URL(conference.room, serverURL);
 
-                        document.title = url.href;
+                        document.title = 'Video Konferans';
                     } catch (e) {
                         const defaultURL = this.props._serverURL || config.defaultServerURL;
                         const serverURL = conference.serverURL || defaultURL;
 
-                        document.title = `${serverURL}/${conference.room}`;
+                        document.title = 'Video Konferans';
                     }
                     this.setState({ conference });
                 } else {

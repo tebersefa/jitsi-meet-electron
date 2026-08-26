@@ -654,6 +654,7 @@ ipcMain.on('open-meeting-window', (event, conference) => {
 
     meetingWindow.once('ready-to-show', () => {
         meetingWindow?.show();
+        setTimeout(() => meetingWindow?.maximize(), 100);
     });
 });
 
