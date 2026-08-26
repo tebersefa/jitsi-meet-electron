@@ -65,10 +65,12 @@ export function parseURLParams(
         try {
             value = param[1];
 
-            if (!dontParse) {
+            if (!dontParse && key !== 'jwt') {
                 const decoded = decodeURIComponent(value).replace(/\\&/, '&');
 
                 value = decoded === 'undefined' ? undefined : Bourne.parse(decoded);
+            } else {
+                value = decodeURIComponent(value);
             }
         } catch (e) {
             reportError(
