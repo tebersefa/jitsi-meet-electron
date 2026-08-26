@@ -176,6 +176,7 @@ class Conference extends Component<IProps, IConferenceState> {
         });
 
         const options = {
+            lang: 'tr',
             configOverwrite,
             interfaceConfigOverwrite,
             jwt,
