@@ -22,6 +22,8 @@ import { autoUpdater } from 'electron-updater';
 import windowStateKeeper from 'electron-window-state';
 import * as path from 'path';
 import * as URL from 'url';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 
 import config from './app/features/config';
 import { openExternalLink } from './app/features/utils/openExternalLink';
@@ -433,13 +435,57 @@ app.on('certificate-error',
         if (isDev || process.env.IGNORE_CERTIFICATE_ERRORS === 'true' || process.argv.includes('--ignore-certificate-errors')) {
             event.preventDefault();
             callback(true);
-        } else {
-            callback(false);
+            return;
         }
+
+        if (process.env.MTLS_CA_CERT) {
+            try {
+                const caCert = new crypto.X509Certificate(fs.readFileSync(process.env.MTLS_CA_CERT));
+                let serverCert;
+                // 'certificate.data' might be a PEM string or a DER buffer depending on the Electron version
+                if (typeof certificate.data === 'string' && !certificate.data.includes('-----BEGIN CERTIFICATE-----')) {
+                    // Fallback if it's actually DER data as a string (legacy)
+                    serverCert = new crypto.X509Certificate(Buffer.from(certificate.data, 'binary'));
+                } else {
+                    serverCert = new crypto.X509Certificate(certificate.data);
+                }
+
+                if (serverCert.verify(caCert.publicKey)) {
+                    event.preventDefault();
+                    callback(true);
+                    return;
+                }
+            } catch (e) {
+                console.error('Failed to verify custom CA:', e);
+            }
+        }
+
+        callback(false);
     }
 );
 
-app.on('ready', createJitsiMeetWindow);
+app.on('select-client-certificate', (event, webContents, url, list, callback) => {
+    if (process.env.MTLS_CLIENT_CERT && list.length > 0) {
+        event.preventDefault();
+        callback(list[0]);
+    }
+});
+
+app.on('ready', () => {
+    if (process.env.MTLS_CLIENT_CERT) {
+        app.importCertificate({
+            certificate: process.env.MTLS_CLIENT_CERT,
+            password: process.env.MTLS_CLIENT_PASS || ''
+        }, (result) => {
+            if (result === 0) {
+                console.log('Successfully imported client certificate.');
+            } else {
+                console.error(`Failed to import client certificate, net::ERR code: ${result}`);
+            }
+        });
+    }
+    createJitsiMeetWindow();
+});
 
 app.on('second-instance', (event, commandLine) => {
     /**
