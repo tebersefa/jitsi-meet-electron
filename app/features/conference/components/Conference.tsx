@@ -157,7 +157,41 @@ class Conference extends Component<IProps, IConferenceState> {
             disableAGC: this.props._disableAGC,
             prejoinConfig: {
                 enabled: true
-            }
+            },
+            toolbarButtons: [
+                'camera',
+                'chat',
+                'closedcaptions',
+                'desktop',
+                'download',
+                // 'embedmeeting',
+                'etherpad',
+                'feedback',
+                'filmstrip',
+                'fullscreen',
+                'hangup',
+                'help',
+                'invite',
+                'livestreaming',
+                'microphone',
+                'mute-everyone',
+                'mute-video-everyone',
+                'participants-pane',
+                'profile',
+                'raisehand',
+                'recording',
+                // 'security',
+                'select-background',
+                'settings',
+                // 'shareaudio',
+                // 'sharedvideo',
+                // 'shortcuts',
+                'stats',
+                'tileview',
+                'toggle-camera',
+                'videoquality',
+                'add-passcode'
+            ]
         };
 
         const interfaceConfigOverwrite = {
