@@ -200,6 +200,9 @@ class Conference extends Component<IProps, IConferenceState> {
             SHOW_CHROME_EXTENSION_BANNER: false
         };
         let jwt;
+        if (searchParameters.jwt) {
+            jwt = searchParameters.jwt;
+        }
 
         Object.entries(hashParameters).forEach(([ key, value ]) => {
             if (key.startsWith('config.')) {
@@ -210,6 +213,28 @@ class Conference extends Component<IProps, IConferenceState> {
                 jwt = value;
             }
         });
+
+        let isModerator = false;
+        if (jwt) {
+            try {
+                const base64Url = jwt.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                const payload = JSON.parse(jsonPayload);
+                if (payload.context && payload.context.user && payload.context.user.moderator === true) {
+                    isModerator = true;
+                }
+            } catch (e) {
+                console.error('Failed to parse JWT', e);
+            }
+        }
+
+        if (!isModerator) {
+            configOverwrite.toolbarButtons = configOverwrite.toolbarButtons.filter((btn: string) => btn !== 'invite');
+            configOverwrite.disableInviteFunctions = true;
+        }
 
         const options = {
             lang: 'tr',
