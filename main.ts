@@ -37,6 +37,10 @@ import pkgJson from './package.json';
 // `node: { __dirname: true }`, so this indirection replaces that behaviour.
 const rootDir = path.resolve(__dirname, '..');
 
+if (process.env.JITSI_MEET_USER_DATA) {
+    app.setPath('userData', process.env.JITSI_MEET_USER_DATA);
+}
+
 const showDevTools = Boolean(process.env.SHOW_DEV_TOOLS) || (process.argv.indexOf('--show-dev-tools') > -1);
 
 // Fix screen-sharing thumbnails being missing sometimes.
