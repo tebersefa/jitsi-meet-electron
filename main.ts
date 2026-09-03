@@ -672,6 +672,30 @@ ipcMain.on('open-meeting-window', (event, conference) => {
 
     meetingWindow.loadURL(meetingURL);
 
+    // Force hide the Jitsi watermark by injecting CSS directly into the conference iframe
+    meetingWindow.webContents.on('did-frame-finish-load', (e, isMainFrame) => {
+        if (!isMainFrame && meetingWindow) {
+            const code = `
+                if (!document.getElementById('hide-watermark-style')) {
+                    var style = document.createElement('style');
+                    style.id = 'hide-watermark-style';
+                    style.innerHTML = '.watermark, .leftwatermark { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; opacity: 0 !important; pointer-events: none !important; }';
+                    if (document.head) {
+                        document.head.appendChild(style);
+                    }
+                }
+            `;
+            try {
+                meetingWindow.webContents.mainFrame.frames.forEach(frame => {
+                    if (frame !== meetingWindow?.webContents.mainFrame) {
+                        frame.executeJavaScript(code).catch(() => {});
+                    }
+                });
+            } catch (err) {
+                console.warn('Failed to inject watermark CSS', err);
+            }
+        }
+    });
     meetingWindow.webContents.once('did-finish-load', () => {
         meetingWindow?.webContents.send('navigate-to-conference', conference);
     });
