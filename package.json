@@ -1,10 +1,10 @@
 {
   "name": "jitsi-meet-electron",
   "version": "2026.8.0",
-  "description": "Electron application for Jitsi Meet",
+  "description": "Electron application for Tubitak Video Conference",
   "main": "./build/main.js",
-  "productName": "Jitsi Meet",
-  "desktopName": "org.jitsi.jitsi-meet",
+  "productName": "Video Konferans",
+  "desktopName": "Video Konferans",
   "private": true,
   "scripts": {
     "start": "node ./esbuild.js --dev && concurrently \"npm:watch\" \"electron --no-sandbox ./build/main.js\"",
@@ -21,8 +21,8 @@
     "node": ">=24.0.0"
   },
   "build": {
-    "appId": "org.jitsi.jitsi-meet",
-    "productName": "Jitsi Meet",
+    "appId": "tr.gov.tubitak.video-konferans",
+    "productName": "Video Konferans",
     "generateUpdatesFilesForAllChannels": true,
     "npmRebuild": false,
     "files": [
@@ -32,7 +32,7 @@
       "!main.js"
     ],
     "mac": {
-      "artifactName": "jitsi-meet.${ext}",
+      "artifactName": "video-konferans.${ext}",
       "target": [
         {
           "arch": "universal",
@@ -59,10 +59,10 @@
       "hardenedRuntime": false
     },
     "linux": {
-      "artifactName": "jitsi-meet-${arch}.${ext}",
+      "artifactName": "video-konferans-${arch}.${ext}",
       "category": "VideoConference;AudioVideo;Audio;Video;Network",
-      "description": "Jitsi Meet Desktop App",
-      "executableName": "jitsi-meet",
+      "description": "Tubitak Video Conference App",
+      "executableName": "video-konferans",
       "target": [
         {
           "arch": "x64",
@@ -83,7 +83,7 @@
       ]
     },
     "win": {
-      "artifactName": "jitsi-meet.${ext}",
+      "artifactName": "video-konferans.${ext}",
       "target": [
         {
           "arch": [
