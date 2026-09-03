@@ -155,6 +155,7 @@ class Conference extends Component<IProps, IConferenceState> {
         const configOverwrite: Record<string, any> = {
             enableCalendarIntegration: false,
             disableAGC: this.props._disableAGC,
+            subject: roomName,
             prejoinConfig: {
                 enabled: true
             },
