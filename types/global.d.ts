@@ -5,6 +5,7 @@ export {};
  * ({@code app/preload/preload.ts}).
  */
 interface IJitsiElectronApp {
+    deviceType?: string;
     ipc: {
         addListener(channel: string, listener: (...args: any[]) => void): (() => void) | undefined;
         send(channel: string, ...args: any[]): void;

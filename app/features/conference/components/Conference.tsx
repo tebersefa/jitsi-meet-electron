@@ -152,6 +152,9 @@ class Conference extends Component<IProps, IConferenceState> {
         };
 
 
+        const deviceType = (typeof window !== 'undefined' && window.jitsiElectronApp?.deviceType)
+            || (typeof process !== 'undefined' ? process.env.DEVICE_TYPE : undefined);
+
         const configOverwrite: Record<string, any> = {
             enableCalendarIntegration: false,
             disableAGC: this.props._disableAGC,
@@ -160,13 +163,13 @@ class Conference extends Component<IProps, IConferenceState> {
             prejoinConfig: {
                 enabled: true
             },
-            hiddenPremeetingButtons: ['invite'],
+            hiddenPremeetingButtons: [ 'invite' ],
             readOnlyName: true,
             toolbarButtons: [
                 'camera',
                 'chat',
                 'closedcaptions',
-                'desktop',
+                ...(deviceType !== 'M5' ? [ 'desktop' ] : []),
                 'download',
                 // 'embedmeeting',
                 'etherpad',

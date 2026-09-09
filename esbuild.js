@@ -232,7 +232,7 @@ const configs = {
         // the way webpack's web target did. (process.env.NODE_ENV is defined in
         // the shared `common` config above.)
         banner: {
-            js: 'var global = globalThis;'
+            js: 'var global = globalThis; var process = globalThis.process || { env: {} };'
         },
         plugins: [ svgrPlugin, externalApiPlugin, htmlPlugin ]
     }

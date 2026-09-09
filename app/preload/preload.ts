@@ -31,6 +31,7 @@ function openExternalLink(url: string): void {
 // carries cloneable data plus callbacks (listeners and the unsubscribe they
 // return), which contextBridge supports, so it works under contextIsolation.
 contextBridge.exposeInMainWorld('jitsiElectronApp', {
+    deviceType: process.env.DEVICE_TYPE,
     openExternalLink,
     ipc: {
         addListener: (channel: string, listener: (...args: any[]) => void) => {
@@ -59,3 +60,13 @@ contextBridge.exposeInMainWorld('jitsiElectronApp', {
         }
     }
 });
+
+try {
+    contextBridge.exposeInMainWorld('process', {
+        env: {
+            DEVICE_TYPE: process.env.DEVICE_TYPE
+        }
+    });
+} catch {
+    // Non-fatal if process is already registered or cannot be exposed.
+}
