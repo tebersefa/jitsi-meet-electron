@@ -675,11 +675,19 @@ ipcMain.on('open-meeting-window', (event, conference) => {
     // Force hide the Jitsi watermark by injecting CSS directly into the conference iframe
     meetingWindow.webContents.on('did-frame-finish-load', (e, isMainFrame) => {
         if (!isMainFrame && meetingWindow) {
+            const zoomLevel = process.env.ZOOM_LEVEL || '1.0';
             const code = `
                 if (!document.getElementById('hide-watermark-style')) {
                     var style = document.createElement('style');
                     style.id = 'hide-watermark-style';
-                    style.innerHTML = '.watermark, .leftwatermark { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; opacity: 0 !important; pointer-events: none !important; }';
+                    style.innerHTML = \`
+                        .watermark, .leftwatermark { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; opacity: 0 !important; pointer-events: none !important; }
+                        
+                        /* Resize all main buttons in Jitsi Meet */
+                        .toolbox-button, .action-btn, .primary-btn, .secondary-btn, .button {
+                            zoom: ${zoomLevel} !important;
+                        }
+                    \`;
                     if (document.head) {
                         document.head.appendChild(style);
                     }
