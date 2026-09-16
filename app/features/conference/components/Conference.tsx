@@ -3,7 +3,6 @@ import {
     initPopupsConfigurationRender,
     setupPictureInPictureRender,
     setupPowerMonitorRender,
-    setupRemoteControlRender,
     setupScreenSharingRender
 } from '@jitsi/electron-sdk/renderer';
 import React, { Component } from 'react';
@@ -159,6 +158,10 @@ class Conference extends Component<IProps, IConferenceState> {
             enableCalendarIntegration: false,
             disableAGC: this.props._disableAGC,
             disableVirtualBackground: true,
+            disableRemoteControl: true,
+            remoteControl: {
+                enabled: false
+            },
             subject: roomName,
             prejoinConfig: {
                 enabled: true
@@ -178,7 +181,7 @@ class Conference extends Component<IProps, IConferenceState> {
                 'fullscreen',
                 'hangup',
                 'help',
-                'invite',
+                // 'invite',
                 'livestreaming',
                 'microphone',
                 'mute-everyone',
@@ -277,7 +280,6 @@ class Conference extends Component<IProps, IConferenceState> {
         // through the window.jitsiElectronSDK bridge installed by the SDK preload.
         initPopupsConfigurationRender(this._api);
         setupScreenSharingRender(this._api);
-        setupRemoteControlRender(this._api);
         if (this.props._alwaysOnTopWindowEnabled) {
             setupPictureInPictureRender(this._api);
         }
