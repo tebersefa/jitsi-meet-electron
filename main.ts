@@ -1363,6 +1363,14 @@ function getTouchSupportCode(): string {
     `;
 }
 
+/**
+ * How far down the conference info band — the subject, the meeting timer and the
+ * labels beside them — sits. jitsi-meet pins that band to the top of the meeting
+ * (`.details-container { top: 0 }`); this replaces that offset, so raise or lower
+ * the value to move the band.
+ */
+const CONFERENCE_INFO_TOP_OFFSET = '36px';
+
 function getInjectionCode(): string {
     return `
         (function() {
@@ -1374,6 +1382,21 @@ function getInjectionCode(): string {
                 style.innerHTML = '.watermark, .leftwatermark { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; opacity: 0 !important; pointer-events: none !important; }';
                 if (document.head) {
                     document.head.appendChild(style);
+                }
+            }
+
+            if (!document.getElementById('conference-info-offset-style')) {
+                var infoStyle = document.createElement('style');
+
+                infoStyle.id = 'conference-info-offset-style';
+
+                // jitsi-meet pins the info band to the top of the meeting; this
+                // pushes it down. Only the band's own offset is touched, so the
+                // show/hide animation on .subject, which drives max-width, and the
+                // layout inside .subject-info-container are both left alone.
+                infoStyle.innerHTML = '.details-container { top: ${CONFERENCE_INFO_TOP_OFFSET} !important; }';
+                if (document.head) {
+                    document.head.appendChild(infoStyle);
                 }
             }
 
