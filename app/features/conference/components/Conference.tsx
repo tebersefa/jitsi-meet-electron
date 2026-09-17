@@ -168,6 +168,7 @@ class Conference extends Component<IProps, IConferenceState> {
                 enabled: true
             },
             hiddenPremeetingButtons: [ 'invite' ],
+            hideEmailInSettings: true,
             readOnlyName: true,
             toolbarButtons: [
                 'camera',
