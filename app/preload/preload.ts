@@ -33,6 +33,7 @@ function openExternalLink(url: string): void {
 // return), which contextBridge supports, so it works under contextIsolation.
 contextBridge.exposeInMainWorld('jitsiElectronApp', {
     deviceType: process.env.DEVICE_TYPE,
+    title: process.env.TITLE,
     zoomLevel: process.env.ZOOM_LEVEL,
     openExternalLink,
     ipc: {
@@ -67,6 +68,7 @@ try {
     contextBridge.exposeInMainWorld('process', {
         env: {
             DEVICE_TYPE: process.env.DEVICE_TYPE,
+            TITLE: process.env.TITLE,
             ZOOM_LEVEL: process.env.ZOOM_LEVEL
         }
     });

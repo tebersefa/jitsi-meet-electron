@@ -6,6 +6,11 @@ export {};
  */
 interface IJitsiElectronApp {
     deviceType?: string;
+
+    /**
+     * Shown as the conference subject in place of the room name, when set.
+     */
+    title?: string;
     zoomLevel?: string;
     ipc: {
         addListener(channel: string, listener: (...args: any[]) => void): (() => void) | undefined;

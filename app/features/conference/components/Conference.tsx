@@ -154,6 +154,11 @@ class Conference extends Component<IProps, IConferenceState> {
         const deviceType = (typeof window !== 'undefined' && window.jitsiElectronApp?.deviceType)
             || (typeof process !== 'undefined' ? process.env.DEVICE_TYPE : undefined);
 
+        // TITLE replaces the room name on screen only; the room that is joined
+        // stays the one from the URL.
+        const title = (typeof window !== 'undefined' && window.jitsiElectronApp?.title)
+            || (typeof process !== 'undefined' ? process.env.TITLE : undefined);
+
         const configOverwrite: Record<string, any> = {
             defaultLanguage: i18n.language || 'tr',
             enableCalendarIntegration: false,
@@ -163,7 +168,7 @@ class Conference extends Component<IProps, IConferenceState> {
             remoteControl: {
                 enabled: false
             },
-            subject: roomName,
+            subject: title || roomName,
             prejoinConfig: {
                 enabled: true
             },
