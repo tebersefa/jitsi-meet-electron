@@ -66,18 +66,6 @@
       "target": [
         {
           "arch": "x64",
-          "target": "AppImage"
-        },
-        {
-          "arch": "x64",
-          "target": "deb"
-        },
-        {
-          "arch": "arm64",
-          "target": "AppImage"
-        },
-        {
-          "arch": "arm64",
           "target": "deb"
         }
       ]
