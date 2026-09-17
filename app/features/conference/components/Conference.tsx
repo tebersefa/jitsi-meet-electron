@@ -155,6 +155,7 @@ class Conference extends Component<IProps, IConferenceState> {
             || (typeof process !== 'undefined' ? process.env.DEVICE_TYPE : undefined);
 
         const configOverwrite: Record<string, any> = {
+            defaultLanguage: i18n.language || 'tr',
             enableCalendarIntegration: false,
             disableAGC: this.props._disableAGC,
             disableVirtualBackground: true,
@@ -245,7 +246,7 @@ class Conference extends Component<IProps, IConferenceState> {
         }
 
         const options = {
-            lang: 'tr',
+            lang: i18n.language || 'tr',
             configOverwrite,
             interfaceConfigOverwrite,
             jwt,
@@ -262,7 +263,10 @@ class Conference extends Component<IProps, IConferenceState> {
         // This event is fired really early, at the same time as 'ready', but has been
         // around for longer.
         // TODO: remove after a while. -saghul
-        this._api.on('browserSupport', this._onIframeLoad);
+        this._api.on('browserSupport', () => {
+            this._onIframeLoad();
+            window.jitsiElectronApp?.ipc?.send('conference-frame-ready');
+        });
 
         this._api.on('suspendDetected', this._onVideoConferenceEnded);
         this._api.on('readyToClose', this._onVideoConferenceEnded);
@@ -272,8 +276,16 @@ class Conference extends Component<IProps, IConferenceState> {
         this._api.on('videoConferenceJoined',
             () => {
                 this.props.dispatch(conferenceJoined(this._conference));
+                window.jitsiElectronApp?.ipc?.send('conference-frame-ready');
             }
         );
+
+        // Notify frame readiness with periodic retries
+        [ 500, 1500, 3000, 5000 ].forEach(delay => {
+            setTimeout(() => {
+                window.jitsiElectronApp?.ipc?.send('conference-frame-ready');
+            }, delay);
+        });
 
         // Setup Jitsi Meet Electron SDK on this renderer. These run in the page
         // ("main world") next to the iframe API and reach the main process only

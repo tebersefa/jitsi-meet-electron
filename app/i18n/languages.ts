@@ -11,6 +11,7 @@ import nl from './lang/nl.json';
 import ptBr from './lang/pt-br.json';
 import ru from './lang/ru.json';
 import sq from './lang/sq.json';
+import tr from './lang/tr.json';
 import zhCN from './lang/zh-CN.json';
 import zhTW from './lang/zh-TW.json';
 
@@ -33,6 +34,8 @@ const languages = {
     pt: { translation: ptBr },
     ru: { translation: ru },
     sq: { translation: sq },
+    tr: { translation: tr },
+    'tr-TR': { translation: tr },
     'zh-CN': { translation: zhCN },
     'zh-TW': { translation: zhTW }
 };

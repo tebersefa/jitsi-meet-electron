@@ -1,0 +1,27 @@
+{
+	"enterConferenceNameOrUrl": "Konferansınız için bir oda adı veya Jitsi URL'si girin",
+	"go": "KATIL",
+	"help": "Yardım",
+	"termsLink": "Şartlar",
+	"privacyLink": "Gizlilik",
+	"recentListLabel": "veya son katıldığınız konferans odalarından birine tekrar katılın",
+	"sendFeedbackLink": "Geri Bildirim Gönder",
+	"aboutLink": "Hakkında",
+	"sourceLink": "Kaynak Kodu",
+	"versionLabel": "Sürüm: {{version}}",
+	"settings": {
+		"back": "Geri",
+		"alwaysOnTopWindow": "Her Zaman Üstte Pencere",
+		"invalidServer": "Geçersiz Sunucu URL'si",
+		"invalidServerTimeout": "Geçersiz Sunucu Zaman Aşımı değeri",
+		"serverUrl": "Sunucu URL'si",
+		"serverTimeout": "Sunucu Zaman Aşımı (saniye cinsinden)",
+		"disableAGC": "Otomatik kazanç kontrolünü (AGC) devre dışı bırak"
+	},
+	"remoteControl": {
+		"message": "Bu bilgisayarın uzaktan kontrol edilmesine izin verilsin mi?",
+		"detail": "Bir toplantı katılımcısı farenizi ve klavyenizi kontrol etmek istiyor.",
+		"allow": "İzin Ver",
+		"deny": "Reddet"
+	}
+}
