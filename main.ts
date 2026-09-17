@@ -1022,6 +1022,347 @@ const reverseTranslationRules: ITranslationRule[] = [
     { pattern: '^Resim\\s+içinde\\s+Resim\\s+modunu\\s+kapat$', flags: 'i', replace: 'Close Picture-in-Picture mode' }
 ];
 
+/**
+ * Containers whose controls jitsi-meet only mounts while the pointer hovers them.
+ * A tap on one of these is treated as a hover first: the container's own click
+ * action is dropped for that tap, so the controls it just revealed can be pressed
+ * with the next one.
+ *
+ * Thumbnails deliberately stay out of this. Their click action is pinning, which
+ * a tap has to keep meaning, so they are handled by `THUMBNAIL_CONTAINERS` below
+ * instead of by a reveal tap.
+ */
+const HOVER_REVEAL_CONTAINERS = '.list-item-container';
+
+/**
+ * Thumbnails, and the menu trigger jitsi-meet mounts inside one only while it
+ * reports `isHovered`.
+ *
+ * On a touchscreen there is nothing to hold that hover: the tap that would
+ * reveal the button is the same tap that pins the participant, and pinning
+ * re-lays out the filmstrip and mounts a fresh thumbnail with the hover gone —
+ * so the button appears and is taken away again within the gesture. Dropping the
+ * click instead would cost the pin, which has to keep working.
+ *
+ * So the thumbnails are simply kept hovered, and the menu button stays mounted.
+ * A tap on the tile then means pin, exactly as a click does, and a tap on the
+ * button opens the menu, with nothing to reveal first. `isHovered` drives only
+ * this button and the connection indicator's auto-hide, so nothing else moves.
+ */
+const THUMBNAIL_CONTAINERS = '.videocontainer';
+const THUMBNAIL_MENU_TRIGGERS = '#remote-video-menu-trigger, #local-video-menu-trigger';
+
+/**
+ * Popover triggers that open on hover and toggle themselves shut again on click
+ * (`Popover.web` `_onClick`, for a popover left at the default `trigger: 'hover'`
+ * with `focusable` defaulting to true). A tap fires both, so the menu would open
+ * and close within the same gesture unless that click is dropped.
+ *
+ * This is a list rather than a rule because the markup offers nothing that tells
+ * these apart from an ordinary button: tooltips are Popovers too, and so are the
+ * click-triggered menus, which must keep their clicks. Extend it when a menu
+ * turns out to open and shut on the same tap; jitsi-meet's own popovers without
+ * an id (chat reactions, the device pickers, the prejoin dropdown) have no
+ * handle to name here.
+ */
+const HOVER_POPOVER_TRIGGERS
+    = '#remote-video-menu-trigger, #local-video-menu-trigger, #participant-connection-indicator';
+
+/**
+ * Touch support for the conference iframe.
+ *
+ * jitsi-meet decides whether a device has touch from the user agent
+ * (`isMobileBrowser()` reads `Platform.OS`), so on Linux/Electron it runs its
+ * mouse-only code paths no matter what the screen can do: the participant menu
+ * button is mounted only while `isHovered` is set from `onMouseEnter`, popovers
+ * open on `mouseenter`, and the toolbar comes back on `mousemove`. A touchscreen
+ * produces none of that until Chromium synthesizes its compatibility mouse
+ * events at touchend — by which time the click has already been hit-tested
+ * against the old DOM, which is why those buttons only respond to a second tap.
+ *
+ * This turns a tap into the hover the UI is waiting for, at pointerdown, and
+ * drops the click of that same tap where it would undo the hover's effect.
+ *
+ * @returns {string} The script to evaluate inside the conference frame.
+ */
+function getTouchSupportCode(): string {
+    return `
+        (function() {
+            if (window.location.href === 'about:blank') return;
+            if (window.__touchHoverShim) return;
+            if (!(navigator.maxTouchPoints > 0)) return;
+            window.__touchHoverShim = true;
+
+            var REVEAL_CONTAINERS = ${JSON.stringify(HOVER_REVEAL_CONTAINERS)};
+            var POPOVER_TRIGGERS = ${JSON.stringify(HOVER_POPOVER_TRIGGERS)};
+            var THUMBNAILS = ${JSON.stringify(THUMBNAIL_CONTAINERS)};
+            var THUMBNAIL_MENUS = ${JSON.stringify(THUMBNAIL_MENU_TRIGGERS)};
+            var HOVER_CLASS = 'touch-hover';
+
+            if (!document.getElementById('touch-hover-style') && document.head) {
+                var style = document.createElement('style');
+                style.id = 'touch-hover-style';
+
+                // The participants pane reveals its row actions through a plain CSS
+                // :hover rule. Dispatched events cannot move the browser's hover
+                // node, so that rule is mirrored here against the class the shim
+                // maintains. Filmstrip and CustomPanel already handle touch
+                // themselves (they check isTouchDevice()), and chat messages use
+                // React state, so they need nothing here.
+                style.innerHTML = '.list-item-container.touch-hover .actions {'
+                    + ' display: flex !important;'
+                    + ' position: relative !important;'
+                    + ' top: auto !important; }'
+                    + ' .list-item-container.touch-hover .indicators { display: none !important; }';
+                document.head.appendChild(style);
+            }
+
+            var hovered = null;
+            var pending = null;
+            // True while the shim, rather than a mouse, decides what is hovered.
+            // It starts out owning it: on a touchscreen there is no mouse to hand
+            // over to, and the thumbnails must stay hovered from the first frame or
+            // Chromium's hover recomputation and this shim would take the menu
+            // button away from each other, frame after frame.
+            var shimOwnsHover = true;
+            var lastMousePos = null;
+
+            function send(el, type, relatedTarget) {
+                try {
+                    var event = new MouseEvent(type, {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        relatedTarget: relatedTarget || null
+                    });
+
+                    event.__shim = true;
+                    el.dispatchEvent(event);
+                } catch (e) {
+                    // The element can be detached mid-gesture; nothing to do.
+                }
+            }
+
+            function chain(el) {
+                var out = [];
+
+                while (el && el.nodeType === 1) {
+                    out.push(el);
+                    el = el.parentElement;
+                }
+
+                return out;
+            }
+
+            function paint(next) {
+                var prevChain = hovered ? chain(hovered) : [];
+                var nextChain = next ? chain(next) : [];
+
+                prevChain.forEach(function(el) {
+                    if (nextChain.indexOf(el) === -1) {
+                        el.classList.remove(HOVER_CLASS);
+                    }
+                });
+                nextChain.forEach(function(el) {
+                    el.classList.add(HOVER_CLASS);
+                });
+            }
+
+            // React derives onMouseEnter/onMouseLeave from mouseout/mouseover pairs.
+            // A single mouseout carrying the new element as relatedTarget makes it
+            // walk up to the common ancestor, so shared parents keep their hover
+            // state — moving onto a menu button inside a thumbnail must not tell
+            // the thumbnail it was left, or it would unmount the button being
+            // aimed at.
+            function moveHoverTo(next) {
+                if (hovered === next) {
+                    return false;
+                }
+
+                paint(next);
+
+                if (hovered && document.contains(hovered)) {
+                    send(hovered, 'mouseout', next);
+                } else if (next) {
+                    send(next, 'mouseover', null);
+                }
+
+                hovered = next;
+                scheduleReassert();
+
+                return true;
+            }
+
+            function enclosing(el, selector) {
+                return el && el.closest ? el.closest(selector) : null;
+            }
+
+            // Hovers every thumbnail that is currently missing its menu button, so
+            // the button stays mounted through pins, re-layouts and the hover the
+            // shim moves around. Thumbnails whose menu is disabled have no trigger
+            // to fill and are skipped, which is also what keeps this from looping:
+            // once the button is there the pass dispatches nothing.
+            function reassertThumbnails() {
+                // Once a mouse has taken over, hover is its business again.
+                if (!shimOwnsHover) return;
+
+                var tiles = document.querySelectorAll(THUMBNAILS);
+
+                for (var i = 0; i < tiles.length; i++) {
+                    var trigger = tiles[i].querySelector(THUMBNAIL_MENUS);
+
+                    if (trigger && !trigger.firstElementChild) {
+                        send(tiles[i], 'mouseover', null);
+                    }
+                }
+            }
+
+            var reassertQueued = false;
+
+            function scheduleReassert() {
+                if (reassertQueued) return;
+
+                reassertQueued = true;
+                requestAnimationFrame(function() {
+                    reassertQueued = false;
+                    reassertThumbnails();
+                });
+            }
+
+            // Chromium marks the mouse events it synthesizes out of a tap, which is
+            // how the shim tells them apart from a mouse that is really being moved.
+            function isCompatEvent(e) {
+                return Boolean(e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents);
+            }
+
+            // Chromium keeps hover on whatever sits under the last real mouse
+            // position and re-runs it whenever the layout changes — and revealing a
+            // control changes the layout. That recomputation lands as a plain
+            // mouseout on the element the tap had just hovered, which is what made
+            // the menu button flash and vanish again. Long-pressing hid it only
+            // because the context menu moves that stored position onto the touch
+            // point, until a real mouse moves and puts it back.
+            //
+            // So while a tap owns the hover, hover changes from anywhere but this
+            // shim are held back. The ones Chromium synthesizes for the tap itself
+            // are redundant with the shim's own, so nothing is lost by dropping
+            // them too, and a mouse that actually moves takes over immediately.
+            //
+            // The position is read in screen coordinates on purpose. A stationary
+            // cursor keeps the same screen position while the page moves under it,
+            // and the meeting window is maximized shortly after it opens, so client
+            // coordinates shift on their own at exactly the moment the thumbnails
+            // first appear — enough to look like a mouse and hand hover away before
+            // the menu buttons were ever put up.
+            function releaseToMouse(e) {
+                if (e.__shim || isCompatEvent(e)) return;
+
+                var moved = lastMousePos
+                    && (lastMousePos.x !== e.screenX || lastMousePos.y !== e.screenY);
+
+                lastMousePos = { x: e.screenX, y: e.screenY };
+
+                if (!moved || !shimOwnsHover) return;
+
+                shimOwnsHover = false;
+                moveHoverTo(null);
+            }
+
+            function guardHover(e) {
+                releaseToMouse(e);
+
+                if (shimOwnsHover && !e.__shim) {
+                    e.stopPropagation();
+                }
+            }
+
+            document.addEventListener('mouseover', guardHover, true);
+            document.addEventListener('mouseout', guardHover, true);
+            document.addEventListener('mousemove', releaseToMouse, true);
+
+            document.addEventListener('pointerdown', function(e) {
+                if (e.pointerType !== 'touch') {
+                    if (shimOwnsHover) {
+                        shimOwnsHover = false;
+                        moveHoverTo(null);
+                    }
+
+                    return;
+                }
+
+                shimOwnsHover = true;
+
+                var target = e.target && e.target.nodeType === 1 ? e.target : null;
+                var fromContainer = enclosing(hovered, REVEAL_CONTAINERS);
+                var fromTrigger = enclosing(hovered, POPOVER_TRIGGERS);
+                var toContainer = enclosing(target, REVEAL_CONTAINERS);
+                var toTrigger = enclosing(target, POPOVER_TRIGGERS);
+
+                moveHoverTo(target);
+
+                // Moving the hover onto the tap can have told a thumbnail it was
+                // left. Putting it back in the same task keeps the menu button from
+                // blinking out for a frame.
+                reassertThumbnails();
+
+                if (hovered) {
+                    // Brings the toolbar back: Conference.web binds _onShowToolbar
+                    // to onMouseMove on #videoconference_page.
+                    send(hovered, 'mousemove', null);
+                }
+
+                // The click that follows is dropped only where the hover has
+                // already done the tap's work and the click would undo it: the
+                // hover just entered a container that revealed its controls (whose
+                // own click would select the row instead), or it just entered a
+                // popover trigger that toggles shut on click. Moving around inside
+                // one it was already on is left alone, so the revealed controls
+                // stay pressable with the next tap — and a tap on a thumbnail is
+                // never dropped, so pinning keeps working.
+                pending = {
+                    at: Date.now(),
+                    swallow: (Boolean(toContainer) && toContainer !== fromContainer)
+                        || (Boolean(toTrigger) && toTrigger !== fromTrigger)
+                };
+            }, true);
+
+            document.addEventListener('pointercancel', function() {
+                pending = null;
+            }, true);
+
+            document.addEventListener('click', function(e) {
+                var tap = pending;
+
+                pending = null;
+
+                // Keyboard and programmatic clicks carry detail 0 and are not ours,
+                // and neither is one arriving long after the tap that set this up.
+                if (!tap || !tap.swallow || e.detail === 0 || Date.now() - tap.at > 2000) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+            }, true);
+
+            // Thumbnails come and go as people join, pin, or the layout switches,
+            // and each new one starts unhovered. Watching for them is what makes the
+            // menu button survive a pin instead of vanishing with the old tile.
+            function watchThumbnails() {
+                if (!document.body) return;
+
+                new MutationObserver(scheduleReassert)
+                    .observe(document.body, { childList: true, subtree: true });
+                reassertThumbnails();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', watchThumbnails);
+            } else {
+                watchThumbnails();
+            }
+        })();
+    `;
+}
+
 function getInjectionCode(): string {
     return `
         (function() {
@@ -1701,7 +2042,8 @@ function injectIframeCustomizations(): void {
         return;
     }
 
-    const code = getInjectionCode();
+    const code = `${getTouchSupportCode()}\n${getInjectionCode()}`;
+
     try {
         const targetFrames = meetingWindow.webContents.mainFrame.framesInSubtree
             || meetingWindow.webContents.mainFrame.frames;
@@ -1717,7 +2059,7 @@ function injectIframeCustomizations(): void {
             }
         });
     } catch (err) {
-        console.warn('Failed to inject watermark CSS and translations', err);
+        console.warn('Failed to inject touch support, watermark CSS and translations', err);
     }
 }
 
