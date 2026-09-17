@@ -6,6 +6,7 @@ export {};
  */
 interface IJitsiElectronApp {
     deviceType?: string;
+    zoomLevel?: string;
     ipc: {
         addListener(channel: string, listener: (...args: any[]) => void): (() => void) | undefined;
         send(channel: string, ...args: any[]): void;

@@ -43,6 +43,31 @@ if (process.env.JITSI_MEET_USER_DATA) {
 
 const showDevTools = Boolean(process.env.SHOW_DEV_TOOLS) || (process.argv.indexOf('--show-dev-tools') > -1);
 
+/**
+ * Resolves the zoom factor from process.env.ZOOM_LEVEL.
+ * Supports decimal factors (e.g. 1.25, 1.5) or percentages (e.g. 125, 150).
+ * Defaults to 1.0.
+ */
+function getZoomFactor(): number {
+    const raw = process.env.ZOOM_LEVEL;
+
+    if (!raw) {
+        return 1.0;
+    }
+
+    let parsed = parseFloat(raw);
+
+    if (isNaN(parsed) || parsed <= 0) {
+        return 1.0;
+    }
+
+    if (parsed > 10) {
+        parsed = parsed / 100;
+    }
+
+    return parsed;
+}
+
 // Fix screen-sharing thumbnails being missing sometimes.
 // https://github.com/electron/electron/issues/44504
 const disabledFeatures = [
@@ -219,6 +244,10 @@ function createJitsiMeetWindow() {
         slashes: true
     });
 
+    const zoomFactor = getZoomFactor();
+    const defaultWidth = Math.round(480 * zoomFactor);
+    const defaultHeight = Math.round(600 * zoomFactor);
+
     // Options used when creating the main Jitsi Meet window.
     // Use a preload script in order to provide node specific functionality
     // to a isolated BrowserWindow in accordance with electron security
@@ -226,24 +255,31 @@ function createJitsiMeetWindow() {
     const options: Electron.BrowserWindowConstructorOptions = {
         x: windowState.x,
         y: windowState.y,
-        width: 480,
-        height: windowState.height,
+        width: defaultWidth,
+        height: windowState.height ? Math.max(windowState.height, defaultHeight) : defaultHeight,
         icon: path.resolve(basePath, './resources/icon.png'),
-        minWidth: 480,
-        minHeight: 600,
+        minWidth: defaultWidth,
+        minHeight: defaultHeight,
         show: false,
         webPreferences: {
             enableBlinkFeatures: 'WebAssemblyCSP',
             contextIsolation: true,
             nodeIntegration: false,
             preload: path.resolve(basePath, './build/preload.js'),
-            sandbox: true
+            sandbox: true,
+            zoomFactor
         }
     };
 
     mainWindow = new BrowserWindow(options);
     windowState.manage(mainWindow);
     mainWindow.loadURL(indexURL);
+
+    if (zoomFactor !== 1.0) {
+        mainWindow.webContents.on('did-finish-load', () => {
+            mainWindow?.webContents.setZoomFactor(zoomFactor);
+        });
+    }
 
     if (isDev) {
         mainWindow.webContents.session.clearCache();
@@ -475,6 +511,16 @@ app.on('select-client-certificate', (event, webContents, url, list, callback) =>
     }
 });
 
+app.on('browser-window-created', (_, win) => {
+    const zoomFactor = getZoomFactor();
+
+    if (zoomFactor !== 1.0) {
+        win.webContents.on('did-finish-load', () => {
+            win.webContents.setZoomFactor(zoomFactor);
+        });
+    }
+});
+
 app.on('ready', () => {
     if (process.env.MTLS_CLIENT_CERT) {
         app.importCertificate({
@@ -653,6 +699,8 @@ ipcMain.on('open-meeting-window', (event, conference) => {
         return { action: 'deny' };
     };
 
+    const zoomFactor = getZoomFactor();
+
     meetingWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -666,28 +714,27 @@ ipcMain.on('open-meeting-window', (event, conference) => {
             contextIsolation: true,
             nodeIntegration: false,
             preload: path.resolve(basePath, './build/preload.js'),
-            sandbox: true
+            sandbox: true,
+            zoomFactor
         }
     });
 
     meetingWindow.loadURL(meetingURL);
 
+    if (zoomFactor !== 1.0) {
+        meetingWindow.webContents.on('did-finish-load', () => {
+            meetingWindow?.webContents.setZoomFactor(zoomFactor);
+        });
+    }
+
     // Force hide the Jitsi watermark by injecting CSS directly into the conference iframe
     meetingWindow.webContents.on('did-frame-finish-load', (e, isMainFrame) => {
         if (!isMainFrame && meetingWindow) {
-            const zoomLevel = process.env.ZOOM_LEVEL || '1.0';
             const code = `
                 if (!document.getElementById('hide-watermark-style')) {
                     var style = document.createElement('style');
                     style.id = 'hide-watermark-style';
-                    style.innerHTML = \`
-                        .watermark, .leftwatermark { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; opacity: 0 !important; pointer-events: none !important; }
-                        
-                        /* Resize all main buttons in Jitsi Meet */
-                        .toolbox-button, .action-btn, .primary-btn, .secondary-btn, .button {
-                            zoom: ${zoomLevel} !important;
-                        }
-                    \`;
+                    style.innerHTML = '.watermark, .leftwatermark { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; opacity: 0 !important; pointer-events: none !important; }';
                     if (document.head) {
                         document.head.appendChild(style);
                     }
