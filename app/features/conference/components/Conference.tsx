@@ -19,6 +19,13 @@ import { conferenceEnded, conferenceJoined } from '../actions';
 import JitsiMeetExternalAPI from '../external_api';
 import { LoadingIndicator, Wrapper } from '../styled';
 
+/**
+ * The device id Chromium gives the input and output the system itself is set to.
+ * It is not a fixed device: the browser re-resolves it whenever the system's own
+ * choice changes, which is what makes it usable as "follow the system".
+ */
+const SYSTEM_DEFAULT_DEVICE_ID = 'default';
+
 interface IProps {
     _alwaysOnTopWindowEnabled?: boolean;
     _disableAGC?: boolean;
@@ -283,6 +290,7 @@ class Conference extends Component<IProps, IConferenceState> {
             () => {
                 this.props.dispatch(conferenceJoined(this._conference));
                 window.jitsiElectronApp?.ipc?.send('conference-frame-ready');
+                this._useSystemDefaultAudioDevices();
             }
         );
 
@@ -302,6 +310,53 @@ class Conference extends Component<IProps, IConferenceState> {
             setupPictureInPictureRender(this._api);
         }
         setupPowerMonitorRender(this._api);
+    }
+
+    /**
+     * Puts the meeting on the microphone and the speaker the system itself uses.
+     *
+     * The pickers for both are hidden, so a device Jitsi Meet stored in an
+     * earlier session would otherwise stay selected for good — including one the
+     * machine has since stopped using, or that is no longer plugged in. Selecting
+     * the browser's {@code default} device instead hands that choice back to the
+     * system, which keeps making it as its own default changes.
+     *
+     * Devices already on the default are left alone so that joining does not
+     * needlessly replace a working track.
+     *
+     * @private
+     * @returns {Promise<void>}
+     */
+    async _useSystemDefaultAudioDevices() {
+        const api = this._api;
+
+        if (!api) {
+            return;
+        }
+
+        try {
+            const [ available, current ] = await Promise.all([
+                api.getAvailableDevices(),
+                api.getCurrentDevices()
+            ]);
+
+            // Not every platform offers a 'default' entry; where it is missing
+            // there is nothing to follow and the browser's own pick already
+            // stands.
+            const canFollowSystem = (kind: 'audioInput' | 'audioOutput') =>
+                (available?.[kind] ?? []).some(device => device.deviceId === SYSTEM_DEFAULT_DEVICE_ID)
+                    && current?.[kind]?.deviceId !== SYSTEM_DEFAULT_DEVICE_ID;
+
+            if (canFollowSystem('audioInput')) {
+                api.setAudioInputDevice(undefined, SYSTEM_DEFAULT_DEVICE_ID);
+            }
+
+            if (canFollowSystem('audioOutput')) {
+                api.setAudioOutputDevice(undefined, SYSTEM_DEFAULT_DEVICE_ID);
+            }
+        } catch (error) {
+            console.warn('Could not put the audio devices back on the system default', error);
+        }
     }
 
     /**

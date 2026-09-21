@@ -1421,6 +1421,35 @@ function getInjectionCode(): string {
                 }
             }
 
+            if (!document.getElementById('hide-audio-device-pickers-style')) {
+                var audioStyle = document.createElement('style');
+
+                audioStyle.id = 'hide-audio-device-pickers-style';
+
+                // Takes away the two places a microphone or a speaker can be
+                // picked, leaving the meeting on whatever the system uses (see
+                // _useSystemDefaultAudioDevices in the conference component).
+                //
+                // The first is the caret beside the microphone button, whose only
+                // content is those two lists; it is hidden along with its tooltip
+                // wrapper so the button does not keep a gap where it sat. The
+                // second is the pair of selectors at the top and bottom of the
+                // settings dialog's audio tab. Both are addressed by ids and roles
+                // jitsi-meet writes out verbatim, since the class names around them
+                // are generated. The tab's remaining controls — the level meter,
+                // noise suppression and the advanced audio checkboxes — are
+                // untouched.
+                audioStyle.innerHTML
+                    = '#audio-settings-button,'
+                    + ' .settings-button-small-icon:has(> #audio-settings-button)'
+                    + ' { display: none !important; }'
+                    + ' #dialogtab-content-audio_tab div[aria-live="polite"]'
+                    + ' { display: none !important; }';
+                if (document.head) {
+                    document.head.appendChild(audioStyle);
+                }
+            }
+
             if (window.__tr_localization_injected) return;
             window.__tr_localization_injected = true;
 
