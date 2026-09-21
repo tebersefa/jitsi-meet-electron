@@ -1400,6 +1400,27 @@ function getInjectionCode(): string {
                 }
             }
 
+            if (!document.getElementById('camera-preview-filter-style')) {
+                var cameraStyle = document.createElement('style');
+
+                cameraStyle.id = 'camera-preview-filter-style';
+
+                // Drops cameras the system could not produce a preview for from the
+                // camera picker. jitsi-meet tries a 5s preview track per device and,
+                // when that fails, renders the entry as a dead tile carrying a
+                // "preview unavailable" message instead of a picture.
+                //
+                // The entries are matched structurally because their classes are
+                // generated: a working camera is a selectable menu item, while a
+                // failed one is rendered with tabIndex -1 and no role at all, so it
+                // is the only child of the group that is not reachable.
+                cameraStyle.innerHTML
+                    = '#video-settings-dialog [role="group"] > div[tabindex="-1"] { display: none !important; }';
+                if (document.head) {
+                    document.head.appendChild(cameraStyle);
+                }
+            }
+
             if (window.__tr_localization_injected) return;
             window.__tr_localization_injected = true;
 
