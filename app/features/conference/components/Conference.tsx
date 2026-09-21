@@ -173,9 +173,12 @@ class Conference extends Component<IProps, IConferenceState> {
 
             // Takes away the smiley picker in the chat composer, and the reaction
             // menu the raise hand button otherwise carries — with reactions off it
-            // falls back to a plain raise hand button.
+            // falls back to a plain raise hand button. The moderation flag drops
+            // the "mute reaction sounds for everyone" checkbox from the settings
+            // dialog, which disableReactions leaves behind on its own.
             disableChatSmileys: true,
             disableReactions: true,
+            disableReactionsModeration: true,
             disableVirtualBackground: true,
             disableRemoteControl: true,
             remoteControl: {
