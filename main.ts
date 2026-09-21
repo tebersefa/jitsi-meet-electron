@@ -1450,6 +1450,31 @@ function getInjectionCode(): string {
                 }
             }
 
+            if (!document.getElementById('hide-message-reactions-style')) {
+                var reactionStyle = document.createElement('style');
+
+                reactionStyle.id = 'hide-message-reactions-style';
+
+                // Takes away the emoji button that appears on a chat message when
+                // it is hovered. The picker in the composer and the reaction menu
+                // on the toolbar are switched off through config instead
+                // (disableChatSmileys, disableReactions); this one has no such
+                // flag in jitsi-meet 11146 — disableReactionsInChat is accepted by
+                // the config whitelist but nothing reads it.
+                //
+                // The buttons sit in an unnamed pair of divs after the message, so
+                // the message's own stable class anchors them: the emoji button is
+                // the first of the two, and the message menu, which stays, is the
+                // second. Where a message carries no emoji button that menu is an
+                // only child, which :not(:last-child) keeps out of the way of.
+                reactionStyle.innerHTML
+                    = '.chatmessage + div > div:first-child:not(:last-child)'
+                    + ' { display: none !important; }';
+                if (document.head) {
+                    document.head.appendChild(reactionStyle);
+                }
+            }
+
             if (window.__tr_localization_injected) return;
             window.__tr_localization_injected = true;
 

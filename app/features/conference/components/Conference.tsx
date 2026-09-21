@@ -170,6 +170,12 @@ class Conference extends Component<IProps, IConferenceState> {
             defaultLanguage: i18n.language || 'tr',
             enableCalendarIntegration: false,
             disableAGC: this.props._disableAGC,
+
+            // Takes away the smiley picker in the chat composer, and the reaction
+            // menu the raise hand button otherwise carries — with reactions off it
+            // falls back to a plain raise hand button.
+            disableChatSmileys: true,
+            disableReactions: true,
             disableVirtualBackground: true,
             disableRemoteControl: true,
             remoteControl: {
