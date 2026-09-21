@@ -832,6 +832,11 @@ const translationRules: ITranslationRule[] = [
     { pattern: '^\\s*Block\\s+everyone[\'’]s\\s+mic\\s+and\\s+camera\\s*$', flags: 'i', replace: 'Herkesin mikrofonunu ve kamerasını engelle' },
     { pattern: '^\\s*Unblock\\s+everyone[\'’]s\\s+mic\\s+and\\s+camera\\s*$', flags: 'i', replace: 'Herkesin mikrofonunun ve kamerasının engellemesini kaldır' },
     { pattern: '^\\s*More\\s+moderation\\s+options\\s*$', flags: 'i', replace: 'Daha fazla denetleme seçeneği' },
+
+    // jitsi-meet's own Turkish for "Everyone follows me" reads as the people who
+    // follow you rather than the switch that makes them follow you.
+    { pattern: '^\\s*Beni\\s+takip\\s+edenler\\s*$', flags: 'i', replace: 'Herkes beni takip etsin' },
+    { pattern: '^\\s*Everyone\\s+follows\\s+me\\s*$', flags: 'i', replace: 'Herkes beni takip etsin' },
     { pattern: '^\\s*More\\s+moderation\\s+controls\\s*$', flags: 'i', replace: 'Daha fazla denetleme kontrolü' },
     { pattern: '^\\s*More\\s+participant\\s+options\\s*$', flags: 'i', replace: 'Daha fazla katılımcı seçeneği' },
     { pattern: '^\\s*Search\\s+participants\\s*$', flags: 'i', replace: 'Katılımcıları ara' },
@@ -1472,6 +1477,25 @@ function getInjectionCode(): string {
                     + ' { display: none !important; }';
                 if (document.head) {
                     document.head.appendChild(reactionStyle);
+                }
+            }
+
+            if (!document.getElementById('hide-follow-me-recorder-style')) {
+                var followMeStyle = document.createElement('style');
+
+                followMeStyle.id = 'hide-follow-me-recorder-style';
+
+                // Takes the "recorder follows me" checkbox out of the settings
+                // dialog's moderator tab. It has no config flag, but the checkbox
+                // carries the name jitsi-meet writes out verbatim, and Checkbox
+                // wraps each one in its own label, so hiding that label takes the
+                // box and its text together and leaves the neighbouring
+                // "everyone follows me" alone.
+                followMeStyle.innerHTML
+                    = '.moderator-tab label:has(input[name="follow-me-recorder"])'
+                    + ' { display: none !important; }';
+                if (document.head) {
+                    document.head.appendChild(followMeStyle);
                 }
             }
 
