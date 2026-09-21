@@ -59,7 +59,7 @@
       "hardenedRuntime": false
     },
     "linux": {
-      "artifactName": "video-konferans-${arch}.${ext}",
+      "artifactName": "video-konferans-${arch}-${version}.${ext}",
       "category": "VideoConference;AudioVideo;Audio;Video;Network",
       "description": "Tubitak Video Conference App",
       "executableName": "video-konferans",
