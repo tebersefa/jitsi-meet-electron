@@ -1499,6 +1499,22 @@ function getInjectionCode(): string {
                 }
             }
 
+            // Takes the "contact support" button off jitsi-meet's error
+            // notifications, the authentication failure among them. That button is
+            // rendered only while a support URL exists, and getSupportUrl reads
+            // interfaceConfig.SUPPORT_URL — which the deployment leaves pointing at
+            // community.jitsi.org — on every render. Clearing the global removes
+            // the button at its source, with no reliance on markup or on a
+            // translated label. It is done here rather than through
+            // interfaceConfigOverwrite because SUPPORT_URL is not in jitsi-meet's
+            // interface config whitelist, so that route silently drops it.
+            //
+            // This runs before the guard below so the retries still catch it if the
+            // page had not defined interfaceConfig yet.
+            if (window.interfaceConfig && window.interfaceConfig.SUPPORT_URL) {
+                window.interfaceConfig.SUPPORT_URL = '';
+            }
+
             if (window.__tr_localization_injected) return;
             window.__tr_localization_injected = true;
 
