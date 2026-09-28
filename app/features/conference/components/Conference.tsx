@@ -26,6 +26,11 @@ import { LoadingIndicator, Wrapper } from '../styled';
  */
 const SYSTEM_DEFAULT_DEVICE_ID = 'default';
 
+/**
+ * The toolbar key of Jitsi Meet's screen share button.
+ */
+const SCREEN_SHARE_BUTTON = 'desktop';
+
 interface IProps {
     _alwaysOnTopWindowEnabled?: boolean;
     _disableAGC?: boolean;
@@ -47,6 +52,35 @@ class Conference extends Component<IProps, IConferenceState> {
     _api?: JitsiMeetExternalAPI;
     _conference!: { room: string; serverURL: string; };
     _iframeLoaded?: boolean;
+
+    /**
+     * The toolbar as configured for this meeting, which the screen share button
+     * is removed from and restored to as other people start and stop sharing.
+     */
+    _toolbarButtons: string[] = [];
+
+    /**
+     * Whether the screen share button is currently taken out of the toolbar.
+     */
+    _screenShareBlocked = false;
+
+    /**
+     * The local participant, known once the meeting is joined. Needed to tell our
+     * own screen share apart from everybody else's.
+     */
+    _localParticipantId?: string;
+
+    /**
+     * Whether we are the one sharing. Tracked as well as the participant id above
+     * so that neither signal arriving late can take away the button that stops
+     * our own share.
+     */
+    _localScreenSharing = false;
+
+    /**
+     * Everyone currently sharing content, as last reported by the meeting.
+     */
+    _sharingParticipantIds: string[] = [];
 
     /**
      * Initializes a new {@code Conference} instance.
@@ -227,6 +261,16 @@ class Conference extends Component<IProps, IConferenceState> {
             ]
         };
 
+        // Kept so the screen share button can be taken out of this list and put
+        // back while the meeting runs, see _updateScreenShareAvailability. The
+        // rest is reset here too, because joining another meeting reuses this
+        // component rather than mounting a new one.
+        this._toolbarButtons = configOverwrite.toolbarButtons;
+        this._screenShareBlocked = false;
+        this._localScreenSharing = false;
+        this._sharingParticipantIds = [];
+        this._localParticipantId = undefined;
+
         const interfaceConfigOverwrite = {
             SHOW_CHROME_EXTENSION_BANNER: false
         };
@@ -296,10 +340,25 @@ class Conference extends Component<IProps, IConferenceState> {
             window.jitsiElectronApp.ipc.send('restore-meeting-window');
         });
         this._api.on('videoConferenceJoined',
-            () => {
+            ({ id }: { id?: string; }) => {
+                this._localParticipantId = id;
                 this.props.dispatch(conferenceJoined(this._conference));
                 window.jitsiElectronApp?.ipc?.send('conference-frame-ready');
                 this._useSystemDefaultAudioDevices();
+            }
+        );
+
+        this._api.on('contentSharingParticipantsChanged',
+            ({ data }: { data?: string[]; }) => {
+                this._sharingParticipantIds = Array.isArray(data) ? data : [];
+                this._updateScreenShareAvailability();
+            }
+        );
+
+        this._api.on('screenSharingStatusChanged',
+            ({ on }: { on?: boolean; }) => {
+                this._localScreenSharing = Boolean(on);
+                this._updateScreenShareAvailability();
             }
         );
 
@@ -319,6 +378,45 @@ class Conference extends Component<IProps, IConferenceState> {
             setupPictureInPictureRender(this._api);
         }
         setupPowerMonitorRender(this._api);
+    }
+
+    /**
+     * Keeps the screen share button available to one person at a time.
+     *
+     * Jitsi Meet lets everyone share at once and offers nothing to restrict that,
+     * so the button is taken out of the toolbar for as long as somebody else is
+     * sharing and put back once they stop. Our own share never counts, otherwise
+     * the button that stops it would disappear with the first frame we send.
+     *
+     * The toolbar is changed through the {@code overwriteConfig} command rather
+     * than by styling the button, because toolbar buttons carry no id or class of
+     * their own — only a translated aria-label — so there is nothing stable to
+     * style. A config overwrite instead makes the toolbox recompute its buttons.
+     *
+     * @private
+     * @returns {void}
+     */
+    _updateScreenShareAvailability() {
+        // Nothing to hide on device types whose toolbar has no screen share.
+        if (!this._toolbarButtons.includes(SCREEN_SHARE_BUTTON)) {
+            return;
+        }
+
+        const sharedByOthers = this._sharingParticipantIds
+            .some(id => id !== this._localParticipantId);
+        const blocked = sharedByOthers && !this._localScreenSharing;
+
+        if (blocked === this._screenShareBlocked) {
+            return;
+        }
+
+        this._screenShareBlocked = blocked;
+
+        this._api?.executeCommand('overwriteConfig', {
+            toolbarButtons: blocked
+                ? this._toolbarButtons.filter(button => button !== SCREEN_SHARE_BUTTON)
+                : this._toolbarButtons
+        });
     }
 
     /**

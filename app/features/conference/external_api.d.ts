@@ -35,6 +35,7 @@ declare class JitsiMeetExternalAPI {
     constructor(domain: string, options?: any);
     on(event: string, listener: (...args: any[]) => void): void;
     dispose(): void;
+    executeCommand(command: string, ...args: any[]): void;
     getAvailableDevices(): Promise<IAvailableDevices>;
     getCurrentDevices(): Promise<ICurrentDevices>;
 
