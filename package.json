@@ -1,6 +1,6 @@
 {
   "name": "jitsi-meet-electron",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Electron application for Tubitak Video Conference",
   "main": "./build/main.js",
   "productName": "Video Konferans",
