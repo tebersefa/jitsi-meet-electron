@@ -41,7 +41,17 @@ if (process.env.JITSI_MEET_USER_DATA) {
     app.setPath('userData', process.env.JITSI_MEET_USER_DATA);
 }
 
-const showDevTools = Boolean(process.env.SHOW_DEV_TOOLS) || (process.argv.indexOf('--show-dev-tools') > -1);
+/**
+ * Whether the inspector may be opened at all. Without DEV=true in the
+ * environment there is no way in: the right click menu keeps its "inspect
+ * element" entry to itself, the Ctrl+Shift+I / F12 shortcuts are never
+ * registered, and `devTools: false` on each window turns the inspector off in
+ * Chromium itself, so nothing inside the page can open one either.
+ */
+const devToolsEnabled = process.env.DEV === 'true';
+
+const showDevTools = devToolsEnabled
+    && (Boolean(process.env.SHOW_DEV_TOOLS) || (process.argv.indexOf('--show-dev-tools') > -1));
 
 /**
  * Resolves the zoom factor from process.env.ZOOM_LEVEL.
@@ -101,14 +111,14 @@ contextMenu({
     showCopyImageAddress: false,
     showSaveImage: false,
     showSaveImageAs: false,
-    showInspectElement: true,
+    showInspectElement: devToolsEnabled,
     showServices: false
 });
 
-// Enable DevTools also on release builds to help troubleshoot issues. Don't
-// show them automatically though.
+// The shortcuts this registers (Ctrl+Shift+I, F12, Ctrl+Shift+C, and the
+// Ctrl+R / F5 reloads it comes with) exist only for development builds.
 debug({
-    isEnabled: true,
+    isEnabled: devToolsEnabled,
     showDevTools
 });
 
@@ -265,6 +275,7 @@ function createJitsiMeetWindow() {
             enableBlinkFeatures: 'WebAssemblyCSP',
             contextIsolation: true,
             nodeIntegration: false,
+            devTools: devToolsEnabled,
             preload: path.resolve(basePath, './build/preload.js'),
             sandbox: true,
             zoomFactor
@@ -2256,6 +2267,7 @@ ipcMain.on('open-meeting-window', (event, conference) => {
             enableBlinkFeatures: 'WebAssemblyCSP',
             contextIsolation: true,
             nodeIntegration: false,
+            devTools: devToolsEnabled,
             preload: path.resolve(basePath, './build/preload.js'),
             sandbox: true,
             zoomFactor
