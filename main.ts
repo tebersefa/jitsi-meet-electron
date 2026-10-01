@@ -522,6 +522,12 @@ app.on('select-client-certificate', (event, webContents, url, list, callback) =>
     }
 });
 
+/**
+ * The page behind the small always-on-top window @jitsi/electron-sdk puts on
+ * screen for as long as a screen share runs.
+ */
+const SCREEN_SHARE_TRACKER_PAGE = 'screenSharingTracker.html';
+
 app.on('browser-window-created', (_, win) => {
     const zoomFactor = getZoomFactor();
 
@@ -530,6 +536,19 @@ app.on('browser-window-created', (_, win) => {
             win.webContents.setZoomFactor(zoomFactor);
         });
     }
+
+    // Closes the SDK's screen sharing tracker before it is ever seen. The SDK
+    // offers no way to turn it off, so the window is caught as it starts loading
+    // its page — it is built hidden and only shown once that page is ready, which
+    // leaves room to close it first. Sharing is started and stopped from the
+    // meeting toolbar, so nothing is lost with it gone, and the SDK needs no
+    // further undoing: it drops its own reference on 'closed', and the branches
+    // that would later close or minimize the tracker both check that reference.
+    win.webContents.on('did-start-navigation', details => {
+        if (details.url?.includes(SCREEN_SHARE_TRACKER_PAGE) && !win.isDestroyed()) {
+            win.destroy();
+        }
+    });
 });
 
 app.on('ready', () => {
