@@ -201,7 +201,18 @@ class Conference extends Component<IProps, IConferenceState> {
             || (typeof process !== 'undefined' ? process.env.TITLE : undefined);
 
         const configOverwrite: Record<string, any> = {
-            defaultLanguage: i18n.language || 'tr',
+            // No language is forced on the meeting, so that one chosen in
+            // settings is remembered.
+            //
+            // Jitsi Meet picks a language in this order: the lang URL parameter,
+            // then what the person chose, then the system's language, then the
+            // deployment's default. Neither lang nor defaultLanguage is passed
+            // from here, because both end up in that first slot — the iframe API
+            // turns defaultLanguage into the lang parameter — and anything in it
+            // wins on every launch, leaving a chosen language unable to stick.
+            //
+            // What is left is the system's language as the default, which a
+            // choice in settings then overrides for good.
             enableCalendarIntegration: false,
             disableAGC: this.props._disableAGC,
 
@@ -312,7 +323,6 @@ class Conference extends Component<IProps, IConferenceState> {
         }
 
         const options = {
-            lang: i18n.language || 'tr',
             configOverwrite,
             interfaceConfigOverwrite,
             jwt,

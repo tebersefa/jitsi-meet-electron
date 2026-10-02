@@ -172,6 +172,19 @@ app.commandLine.appendSwitch('disable-features', disabledFeatures.join(','));
 // Enable Opus RED field trial.
 app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-Audio-Red-For-Opus/Enabled/');
 
+/**
+ * The language the application runs in, which is Turkish whatever the machine it
+ * is installed on reports. It settles app.getLocale() for the native dialogs,
+ * navigator.language for the app's own strings, and the language the meeting
+ * opens in — Jitsi Meet reads the browser's language as its default.
+ *
+ * It stays a default: a language chosen in the meeting's settings is remembered
+ * and takes precedence over this on the next launch. Nothing is forced onto the
+ * meeting through lang or defaultLanguage, which would overrule that choice; see
+ * the conference component.
+ */
+app.commandLine.appendSwitch('lang', 'tr');
+
 // Wayland: Enable optional PipeWire support.
 if (!app.commandLine.hasSwitch('enable-features')) {
     app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
