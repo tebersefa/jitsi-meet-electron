@@ -1637,8 +1637,17 @@ function getInjectionCode(): string {
                 // ride high. Taking the message's line height gives it a box of
                 // the same height to sit in, which brings the two to within a
                 // pixel of each other, and that pixel is given back below.
+                // A private message carries a notice between its text and the
+                // footer, and that notice is a block, which breaks the line the
+                // float was going to land on and sends the time below it again.
+                // Laid out inline with a break of its own in front, the notice
+                // still gets a line to itself and the time now shares it.
                 timestampStyle.innerHTML
                     = '.usermessage p { display: inline; margin: 0; }'
+                    + ' .usermessage > div:not(:has(.timestamp))'
+                    + ' { display: inline; }'
+                    + ' .usermessage > div:not(:has(.timestamp))::before'
+                    + ' { content: ""; display: block; }'
                     + ' .usermessage > div:has(> .timestamp)'
                     + ' { float: right; margin: 1px 0 0 8px; }'
                     + ' .usermessage .timestamp { line-height: inherit; margin: 0; }';
