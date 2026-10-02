@@ -11,7 +11,8 @@ import {
     Menu,
     app,
     dialog,
-    ipcMain
+    ipcMain,
+    protocol
 } from 'electron';
 import contextMenu from 'electron-context-menu';
 import debug from 'electron-debug';
@@ -49,6 +50,86 @@ if (process.env.JITSI_MEET_USER_DATA) {
  * Chromium itself, so nothing inside the page can open one either.
  */
 const devToolsEnabled = process.env.DEV === 'true';
+
+/**
+ * The scheme and host the meeting window is served from, which together make up
+ * the origin Chromium names in the bar above a picture-in-picture window. Loaded
+ * from file:// it called the meeting "File on your device"; this gives it a name
+ * of its own instead. Hosts carry no spaces and no capitals, so what shows up is
+ * {@code tubitak://video-konferans}.
+ *
+ * The launcher window is left on file://, as nothing of it is ever named on
+ * screen.
+ */
+const MEETING_SCHEME = 'tubitak';
+const MEETING_HOST = 'video-konferans';
+
+/**
+ * Content types for what the meeting window loads over that scheme. Anything
+ * outside this list is served without one and left for Chromium to sniff.
+ */
+const MEETING_CONTENT_TYPES: Record<string, string> = {
+    '.css': 'text/css',
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.svg': 'image/svg+xml'
+};
+
+// Has to run before the app is ready, and marks the scheme as a normal secure
+// origin so that the window keeps the storage, workers and media permissions it
+// had on file://.
+protocol.registerSchemesAsPrivileged([ {
+    scheme: MEETING_SCHEME,
+    privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        corsEnabled: true,
+        stream: true
+    }
+} ]);
+
+/**
+ * Serves the built meeting window over {@code MEETING_SCHEME}.
+ *
+ * @param {string} basePath - The directory the application was loaded from.
+ * @returns {void}
+ */
+function registerMeetingProtocol(basePath: string): void {
+    if (protocol.isProtocolHandled(MEETING_SCHEME)) {
+        return;
+    }
+
+    const buildPath = path.resolve(basePath, './build');
+
+    protocol.handle(MEETING_SCHEME, async request => {
+        const { pathname } = new URL.URL(request.url);
+        const requested = path.resolve(buildPath, `.${decodeURIComponent(pathname)}`);
+
+        // Belt and braces. A standard scheme has its '..' segments resolved away
+        // against the host before the request ever arrives, so a path cannot walk
+        // out of the build directory on its own; this still catches what that
+        // leaves through, such as an encoded backslash on Windows.
+        if (requested !== buildPath && !requested.startsWith(buildPath + path.sep)) {
+            console.warn(`Rejected ${MEETING_SCHEME} request outside the build directory: ${request.url}`);
+
+            return new Response(null, { status: 403 });
+        }
+
+        try {
+            const body = await fs.promises.readFile(requested);
+            const contentType = MEETING_CONTENT_TYPES[path.extname(requested).toLowerCase()];
+
+            return new Response(body, contentType ? { headers: { 'content-type': contentType } } : undefined);
+        } catch (error) {
+            console.warn(`Could not serve ${request.url}`, error);
+
+            return new Response(null, { status: 404 });
+        }
+    });
+}
 
 const showDevTools = devToolsEnabled
     && (Boolean(process.env.SHOW_DEV_TOOLS) || (process.argv.indexOf('--show-dev-tools') > -1));
@@ -2287,11 +2368,10 @@ ipcMain.on('open-meeting-window', (event, conference) => {
     }
 
     const basePath = isDev ? rootDir : app.getAppPath();
-    const meetingURL = URL.format({
-        pathname: path.resolve(basePath, './build/meeting.html'),
-        protocol: 'file:',
-        slashes: true
-    });
+
+    registerMeetingProtocol(basePath);
+
+    const meetingURL = `${MEETING_SCHEME}://${MEETING_HOST}/meeting.html`;
 
     const windowOpenHandler = ({ url, frameName }: { frameName: string; url: string; }) => {
         const target = getPopupTarget(url, frameName);
