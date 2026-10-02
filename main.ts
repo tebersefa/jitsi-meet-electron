@@ -1529,6 +1529,43 @@ function getInjectionCode(): string {
                 }
             }
 
+            if (!document.getElementById('chat-timestamp-inline-style')) {
+                var timestampStyle = document.createElement('style');
+
+                timestampStyle.id = 'chat-timestamp-inline-style';
+
+                // Moves the time to the end of the message instead of onto a line
+                // of its own, which is what makes the bubbles so tall: jitsi-meet
+                // puts it in a footer below the text, and both that footer and the
+                // time inside it add a top margin.
+                //
+                // The footer is dropped from the layout with display: contents so
+                // its children lay out as if they were the message's own, and the
+                // time is then floated to the right. Coming last in the source, a
+                // float lands at the end of the final line of text when there is
+                // room for it and drops to its own line when there is not, so a
+                // short message keeps the time beside it and a long one still
+                // reads properly. Anything else in the footer, such as reactions,
+                // stays where it was.
+                //
+                // Matched through the classes jitsi-meet writes out verbatim; the
+                // footer's own class is generated, so it is reached through the
+                // time it contains.
+                // A float's top sits on the top of the line box, and the time is
+                // set in a smaller face than the message, so it would otherwise
+                // ride high. Taking the message's line height gives it a box of
+                // the same height to sit in, which brings the two to within a
+                // pixel of each other, and that pixel is given back below.
+                timestampStyle.innerHTML
+                    = '.usermessage p { display: inline; margin: 0; }'
+                    + ' .usermessage > div:has(> .timestamp)'
+                    + ' { float: right; margin: 1px 0 0 8px; }'
+                    + ' .usermessage .timestamp { line-height: inherit; margin: 0; }';
+                if (document.head) {
+                    document.head.appendChild(timestampStyle);
+                }
+            }
+
             // Takes the "contact support" button off jitsi-meet's error
             // notifications, the authentication failure among them. That button is
             // rendered only while a support URL exists, and getSupportUrl reads
