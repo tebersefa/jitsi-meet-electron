@@ -554,9 +554,59 @@ function handleProtocolCall(fullProtocolCall?: string) {
 }
 
 /**
+ * Electron can return no userData path when its default directory cannot be
+ * created. ProcessSingleton then attempts to write SingletonLock in the current
+ * directory. Select a writable profile before requesting that lock on Linux.
+ *
+ * @returns {void}
+ */
+function prepareSingleInstanceProfile(): void {
+    if (process.platform !== 'linux') {
+        return;
+    }
+
+    const checkWritable = (directory: string) => {
+        fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+
+        // SingletonLock is a symlink. Probe the same operation without touching
+        // an existing lock or relying on mode bits on a read-only mount.
+        const probe = path.join(directory, `.singleton-probe-${crypto.randomUUID()}`);
+
+        fs.symlinkSync('probe', probe);
+        fs.unlinkSync(probe);
+    };
+
+    try {
+        checkWritable(app.getPath('userData'));
+
+        return;
+    } catch {
+        // A missing default profile on a read-only filesystem also lands here.
+    }
+
+    const uid = process.getuid?.();
+    const directory = path.join('/tmp', `jitsi-meet-electron-${uid}`);
+
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+
+    const stat = fs.lstatSync(directory);
+
+    if (!stat.isDirectory() || stat.uid !== uid || (stat.mode & 0o077) !== 0) {
+        throw new Error(`Cannot use an unsafe temporary profile: ${directory}`);
+    }
+
+    checkWritable(directory);
+    app.setPath('userData', directory);
+    app.setPath('sessionData', directory);
+    console.warn(`Using temporary profile ${directory}; its data lasts until /tmp is cleared.`);
+}
+
+/**
  * Force Single Instance Application.
  * Handle this on darwin via LSMultipleInstancesProhibited in Info.plist as below does not work on MAS
  */
+prepareSingleInstanceProfile();
+
 const gotInstanceLock = process.platform === 'darwin' ? true : app.requestSingleInstanceLock();
 
 if (!gotInstanceLock) {
